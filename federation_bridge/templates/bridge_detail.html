@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ bridge.name }}</h2>
+<p>{{ bridge.description }}</p>
+
+<table>
+    <tr><th>Status</th><td class="status-{{ status }}">{{ status }}</td></tr>
+    <tr><th>FedHub</th><td>{{ bridge.fedhub_address }}:{{ bridge.fedhub_port }}</td></tr>
+    <tr><th>JWT Token</th><td><code>{{ bridge.jwt_token[:20] }}...</code></td></tr>
+    <tr><th>CoT Input (TCP)</th><td>{% if bridge.cot_input_port %}{{ bridge.cot_input_port }}{% else %}-{% endif %}</td></tr>
+    <tr><th>CoT Input (UDP)</th><td>{% if bridge.cot_input_udp_port %}{{ bridge.cot_input_udp_port }}{% else %}-{% endif %}</td></tr>
+    <tr><th>CoT Output</th><td>{% if bridge.cot_output_host %}{{ (bridge.cot_output_protocol or 'tcp')|upper }} {{ bridge.cot_output_host }}:{{ bridge.cot_output_port }}{% else %}-{% endif %}</td></tr>
+    <tr><th>Group Override</th><td>{% if bridge.group_override %}{{ bridge.group_override }}{% else %}-{% endif %}</td></tr>
+    <tr><th>Embed Federation Groups in CoT</th><td>{% if bridge.embed_federate_groups %}ON{% else %}OFF{% endif %}</td></tr>
+    <tr><th>Group Translation</th><td>{% if bridge.group_translation %}<code>{{ bridge.group_translation }}</code>{% else %}-{% endif %}</td></tr>
+    <tr><th>Simulator</th><td>{% if bridge.simulator_enabled %}ON ({{ bridge.simulator_tracks }} tracks, {{ bridge.simulator_interval }}s interval, direction: {{ bridge.simulator_direction or 'fedhub' }}{% if bridge.simulator_groups %}, groups: {{ bridge.simulator_groups }}{% endif %}){% else %}OFF{% endif %}</td></tr>
+    <tr><th>Virtual Chat User</th><td>{% if bridge.virtual_chat_enabled %}ON (callsign: {{ bridge.virtual_chat_callsign or 'fedhub-broadcast-chat-' + bridge.name }}){% else %}OFF{% endif %}</td></tr>
+    <tr><th>Created</th><td>{{ bridge.created_at }}</td></tr>
+</table>
+
+<div class="actions">
+    {% if status == 'running' %}
+    <form method="post" action="/bridges/{{ bridge.id }}/stop" style="display:inline">
+        <button type="submit">Stop</button>
+    </form>
+    {% else %}
+    <form method="post" action="/bridges/{{ bridge.id }}/start" style="display:inline">
+        <button type="submit">Start</button>
+    </form>
+    {% endif %}
+    <a href="/bridges/{{ bridge.id }}/edit"><button type="button">Edit</button></a>
+    <form method="post" action="/bridges/{{ bridge.id }}/delete" style="display:inline"
+          onsubmit="return confirm('Delete this bridge?')">
+        <button type="submit" class="danger">Delete</button>
+    </form>
+</div>
+
+<p><a href="/">&larr; Back to bridges</a></p>
+{% endblock %}

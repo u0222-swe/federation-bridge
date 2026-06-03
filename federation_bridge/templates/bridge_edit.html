@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edit Bridge: {{ bridge.name }}</h2>
+
+<form method="post" action="/bridges/{{ bridge.id }}/edit" class="card">
+    <label>Name <input type="text" name="name" value="{{ bridge.name }}" required></label>
+    <label>Description <input type="text" name="description" value="{{ bridge.description or '' }}"></label>
+    <label>FedHub Address <input type="text" name="fedhub_address" value="{{ bridge.fedhub_address }}" required></label>
+    <label>FedHub Port <input type="number" name="fedhub_port" value="{{ bridge.fedhub_port }}" required></label>
+    <label>JWT Token
+        <textarea name="jwt_token" rows="3" placeholder="Leave blank to keep existing token"></textarea>
+    </label>
+    <label>CoT Input Port (TCP) <input type="number" name="cot_input_port" value="{{ bridge.cot_input_port or 0 }}" min="0" max="65535"></label>
+    <label>CoT Input Port (UDP) <input type="number" name="cot_input_udp_port" value="{{ bridge.cot_input_udp_port or 0 }}" min="0" max="65535"></label>
+    <label>CoT Output Host <input type="text" name="cot_output_host" value="{{ bridge.cot_output_host or '' }}"></label>
+    <label>CoT Output Port <input type="number" name="cot_output_port" value="{{ bridge.cot_output_port or 0 }}" min="0" max="65535"></label>
+    <label>CoT Output Protocol
+        <select name="cot_output_protocol">
+            <option value="tcp" {% if (bridge.cot_output_protocol or 'tcp') == 'tcp' %}selected{% endif %}>TCP</option>
+            <option value="udp" {% if bridge.cot_output_protocol == 'udp' %}selected{% endif %}>UDP</option>
+        </select>
+    </label>
+    <label>Group Override <input type="text" name="group_override" value="{{ bridge.group_override or '' }}" placeholder="e.g. sensors, command (comma-separated FedHub group names)"></label>
+    <label class="checkbox"><input type="checkbox" name="embed_federate_groups" value="true" {% if bridge.embed_federate_groups %}checked{% endif %}> Embed FedHub federation groups in CoT (non-standard)</label>
+    <small>Carries each event's federation groups through the CoT hop so they
+    survive bridge-to-bridge transit (otherwise lost unless Group Override is
+    set). Adds a non-standard <code>&lt;__fedhubgroups&gt;</code> element to
+    <em>outgoing</em> CoT. Incoming groups are always restored, so enable this on
+    the bridge that emits CoT (the FedHub&nbsp;&rarr;&nbsp;CoT / sending side).
+    Group Override, if set, takes precedence over carried groups.</small>
+    <label>Group Translation (CoT &harr; FedHub)
+        <textarea name="group_translation" rows="3" placeholder="blue = ALPHA&#10;green = BRAVO">{{ bridge.group_translation or '' }}</textarea>
+    </label>
+    <small>Optional, applies when group embedding is on. One mapping per line as
+    <code>cot_name = fedhub_name</code>. Incoming CoT groups are translated to the
+    FedHub name before going to FedHub; outgoing FedHub groups are translated back
+    to the CoT name. Unlisted groups pass through unchanged.</small>
+    <label class="checkbox"><input type="checkbox" name="simulator_enabled" value="true" {% if bridge.simulator_enabled %}checked{% endif %}> Enable CoT Simulator (generates random test events)</label>
+    <label>Simulator Interval (seconds) <input type="number" name="simulator_interval" value="{{ bridge.simulator_interval or 5 }}" min="1"></label>
+    <label>Simulator Tracks <input type="number" name="simulator_tracks" value="{{ bridge.simulator_tracks or 5 }}" min="1" max="50"></label>
+    <label>Simulator Direction
+        <select name="simulator_direction">
+            <option value="fedhub" {% if (bridge.simulator_direction or 'fedhub') == 'fedhub' %}selected{% endif %}>FedHub (to FedHub)</option>
+            <option value="cot_output" {% if bridge.simulator_direction == 'cot_output' %}selected{% endif %}>CoT Output (to output host)</option>
+            <option value="both" {% if bridge.simulator_direction == 'both' %}selected{% endif %}>Both</option>
+        </select>
+    </label>
+    <small>Where simulated events are sent. <code>CoT Output</code> / <code>Both</code>
+    require a CoT Output Host/Port to be configured.</small>
+    <label>Simulator Group(s) <input type="text" name="simulator_groups" value="{{ bridge.simulator_groups or '' }}" placeholder="e.g. blue (comma-separated FedHub federation groups)"></label>
+    <small>Optional. Tags simulated events with these federation group(s).
+    Always applied toward FedHub; embedded into the CoT output
+    (as <code>&lt;__fedhubgroups&gt;</code>) only when group embedding is on.</small>
+    <label class="checkbox"><input type="checkbox" name="virtual_chat_enabled" value="true" {% if bridge.virtual_chat_enabled %}checked{% endif %}> Enable Virtual Chat User</label>
+    <small>Announces a stationary contact (at lat/lon 0,0) into the federation. Any
+    <em>direct</em> chat an ATAK client sends to this contact is re-broadcast as a
+    broadcast GeoChat ("All Chat Rooms") on this bridge's CoT output.</small>
+    <label>Virtual Chat User Callsign <input type="text" name="virtual_chat_callsign" value="{{ bridge.virtual_chat_callsign or '' }}" placeholder="blank = fedhub-broadcast-chat-&lt;name&gt;"></label>
+
+    {% if bridge.enabled %}
+    <p><em>Bridge is currently enabled — saving will restart it with the new configuration (~3-5s downtime on the CoT input/output sockets).</em></p>
+    {% else %}
+    <p><em>Bridge is currently disabled — changes are saved but the bridge will not start until you click Start.</em></p>
+    {% endif %}
+
+    <button type="submit">Save changes</button>
+    <a href="/bridges/{{ bridge.id }}">Cancel</a>
+</form>
+{% endblock %}

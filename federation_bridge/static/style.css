@@ -1,0 +1,146 @@
+:root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #d7dbe0;
+    --text: #1f2328;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --danger: #d32f2f;
+    --radius: 8px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: system-ui, -apple-system, sans-serif;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 4rem;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+header h1 { font-size: 1.4rem; margin: 0 0 1.5rem; }
+header h1 a { color: var(--text); text-decoration: none; }
+h2 { font-size: 1.15rem; margin: 2rem 0 0.75rem; }
+a { color: var(--accent); }
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+th, td { padding: 0.65rem 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+th {
+    background: #f0f2f5;
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+}
+tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #fafbfc; }
+
+/* Forms */
+form { margin: 1rem 0; }
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+}
+
+label { display: block; margin: 0 0 1rem; font-weight: 500; }
+
+input[type="text"],
+input[type="password"],
+input[type="email"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+    display: block;
+    width: 100%;
+    margin-top: 0.3rem;
+    padding: 0.5rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+    background: #fff;
+    color: inherit;
+}
+input[type="number"] { width: 160px; }
+textarea { resize: vertical; }
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+/* Checkbox rows: keep the box on the same baseline as its label text */
+label.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    cursor: pointer;
+}
+label.checkbox input[type="checkbox"] {
+    width: 1.05rem;
+    height: 1.05rem;
+    margin: 0;
+    flex: none;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Help text shown under a field */
+form small {
+    display: block;
+    margin: -0.6rem 0 1rem;
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+form small code,
+td code {
+    background: #eef0f3;
+    padding: 0.05rem 0.3rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+}
+
+/* Buttons */
+button {
+    padding: 0.5rem 1.1rem;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: inherit;
+    font: inherit;
+    margin-right: 0.4rem;
+}
+button:hover { background: #f3f4f6; }
+button[type="submit"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+button[type="submit"]:hover { background: var(--accent-hover); }
+button.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.danger:hover { filter: brightness(0.92); }
+
+/* Status pills */
+.status-running { color: #2e7d32; font-weight: 600; }
+.status-stopped { color: #757575; }
+.status-error { color: var(--danger); font-weight: 600; }
+.status-starting { color: #f57c00; }
+
+.actions { margin: 1rem 0; }
+</content>
+</invoke>

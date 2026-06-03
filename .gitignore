@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Runtime data (SQLite database with bridge configs / JWT tokens)
+data/
+*.db
+*.db.bak
+*.sqlite3
+
+# Wire / debug logs
+fedbridge-wire/
+*.log
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

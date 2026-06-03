@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Bridges</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>FedHub</th>
+            <th>CoT In (TCP/UDP)</th>
+            <th>CoT Out</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for bridge in bridges %}
+        <tr>
+            <td><a href="/bridges/{{ bridge.id }}">{{ bridge.name }}</a></td>
+            <td>{{ bridge.fedhub_address }}:{{ bridge.fedhub_port }}</td>
+            <td>
+                {% if bridge.cot_input_port %}TCP:{{ bridge.cot_input_port }}{% endif %}
+                {% if bridge.cot_input_port and bridge.cot_input_udp_port %} / {% endif %}
+                {% if bridge.cot_input_udp_port %}UDP:{{ bridge.cot_input_udp_port }}{% endif %}
+                {% if not bridge.cot_input_port and not bridge.cot_input_udp_port %}-{% endif %}
+            </td>
+            <td>{% if bridge.cot_output_host %}{{ (bridge.cot_output_protocol or 'tcp')|upper }} {{ bridge.cot_output_host }}:{{ bridge.cot_output_port }}{% else %}-{% endif %}</td>
+            <td class="status-{{ statuses.get(bridge.id, 'stopped') }}">{{ statuses.get(bridge.id, 'stopped') }}</td>
+            <td>
+                {% if statuses.get(bridge.id) == 'running' %}
+                <form method="post" action="/bridges/{{ bridge.id }}/stop" style="display:inline">
+                    <button type="submit">Stop</button>
+                </form>
+                {% else %}
+                <form method="post" action="/bridges/{{ bridge.id }}/start" style="display:inline">
+                    <button type="submit">Start</button>
+                </form>
+                {% endif %}
+                <a href="/bridges/{{ bridge.id }}/edit"><button type="button">Edit</button></a>
+                <form method="post" action="/bridges/{{ bridge.id }}/delete" style="display:inline"
+                      onsubmit="return confirm('Delete bridge {{ bridge.name }}?')">
+                    <button type="submit" class="danger">Delete</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="6">No bridges configured</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+<h2>Create Bridge</h2>
+<form method="post" action="/bridges" class="card">
+    <label>Name <input type="text" name="name" required></label>
+    <label>Description <input type="text" name="description"></label>
+    <label>FedHub Address <input type="text" name="fedhub_address" value="{{ defaults.address }}"></label>
+    <label>FedHub Port <input type="number" name="fedhub_port" value="{{ defaults.port }}"></label>
+    <label>JWT Token <textarea name="jwt_token" required rows="3"></textarea></label>
+    <label>CoT Input Port (TCP) <input type="number" name="cot_input_port" value="0" min="0" max="65535"></label>
+    <label>CoT Input Port (UDP) <input type="number" name="cot_input_udp_port" value="0" min="0" max="65535"></label>
+    <label>CoT Output Host <input type="text" name="cot_output_host"></label>
+    <label>CoT Output Port <input type="number" name="cot_output_port" value="0" min="0" max="65535"></label>
+    <label>CoT Output Protocol
+        <select name="cot_output_protocol">
+            <option value="tcp" selected>TCP</option>
+            <option value="udp">UDP</option>
+        </select>
+    </label>
+    <label>Group Override <input type="text" name="group_override" placeholder="e.g. sensors, command (comma-separated FedHub group names)"></label>
+    <label class="checkbox"><input type="checkbox" name="embed_federate_groups" value="true"> Embed FedHub federation groups in CoT (non-standard)</label>
+    <small>Carries each event's federation groups through the CoT hop so they
+    survive bridge-to-bridge transit (otherwise lost unless Group Override is
+    set). Adds a non-standard <code>&lt;__fedhubgroups&gt;</code> element to
+    <em>outgoing</em> CoT. Incoming groups are always restored, so enable this on
+    the bridge that emits CoT (the FedHub&nbsp;&rarr;&nbsp;CoT / sending side).
+    Group Override, if set, takes precedence over carried groups.</small>
+    <label>Group Translation (CoT &harr; FedHub)
+        <textarea name="group_translation" rows="3" placeholder="blue = ALPHA&#10;green = BRAVO"></textarea>
+    </label>
+    <small>Optional, applies when group embedding is on. One mapping per line as
+    <code>cot_name = fedhub_name</code>. Incoming CoT groups are translated to the
+    FedHub name before going to FedHub; outgoing FedHub groups are translated back
+    to the CoT name. Unlisted groups pass through unchanged.</small>
+    <label class="checkbox"><input type="checkbox" name="simulator_enabled" value="true"> Enable CoT Simulator (generates random test events)</label>
+    <label>Simulator Interval (seconds) <input type="number" name="simulator_interval" value="5" min="1"></label>
+    <label>Simulator Tracks <input type="number" name="simulator_tracks" value="5" min="1" max="50"></label>
+    <label>Simulator Direction
+        <select name="simulator_direction">
+            <option value="fedhub" selected>FedHub (to FedHub)</option>
+            <option value="cot_output">CoT Output (to output host)</option>
+            <option value="both">Both</option>
+        </select>
+    </label>
+    <small>Where simulated events are sent. <code>CoT Output</code> / <code>Both</code>
+    require a CoT Output Host/Port to be configured.</small>
+    <label>Simulator Group(s) <input type="text" name="simulator_groups" placeholder="e.g. blue (comma-separated FedHub federation groups)"></label>
+    <small>Optional. Tags simulated events with these federation group(s).
+    Always applied toward FedHub; embedded into the CoT output
+    (as <code>&lt;__fedhubgroups&gt;</code>) only when group embedding is on.</small>
+    <label class="checkbox"><input type="checkbox" name="virtual_chat_enabled" value="true"> Enable Virtual Chat User</label>
+    <small>Announces a stationary contact (at lat/lon 0,0) into the federation. Any
+    <em>direct</em> chat an ATAK client sends to this contact is re-broadcast as a
+    broadcast GeoChat ("All Chat Rooms") on this bridge's CoT output.</small>
+    <label>Virtual Chat User Callsign <input type="text" name="virtual_chat_callsign" placeholder="blank = fedhub-broadcast-chat-&lt;name&gt;"></label>
+    <button type="submit">Create Bridge</button>
+</form>
+{% endblock %}
