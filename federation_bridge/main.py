@@ -72,6 +72,14 @@ async def create_bridge(
     cot_output_protocol: str = Form("tcp"),
     cot_input_port: int = Form(0),
     cot_input_udp_port: int = Form(0),
+    cot_input_http_port: int = Form(0),
+    cot_output_http_url: str = Form(""),
+    http_client_cert: str = Form(""),
+    http_client_key: str = Form(""),
+    http_ca_cert: str = Form(""),
+    http_server_cert: str = Form(""),
+    http_server_key: str = Form(""),
+    http_server_ca: str = Form(""),
     group_override: str = Form(""),
     embed_federate_groups: str = Form(""),
     group_translation: str = Form(""),
@@ -82,6 +90,14 @@ async def create_bridge(
     simulator_groups: str = Form(""),
     virtual_chat_enabled: str = Form(""),
     virtual_chat_callsign: str = Form(""),
+    callsign_rewrite_out: str = Form(""),
+    callsign_rewrite_in: str = Form(""),
+    redact_out: str = Form(""),
+    redact_in: str = Form(""),
+    classify_access_out: str = Form(""),
+    classify_access_in: str = Form(""),
+    classify_remarks_out: str = Form(""),
+    classify_remarks_in: str = Form(""),
     session: AsyncSession = Depends(get_session),
 ):
     bridge = BridgeModel(
@@ -95,6 +111,14 @@ async def create_bridge(
         cot_output_protocol=cot_output_protocol,
         cot_input_port=cot_input_port,
         cot_input_udp_port=cot_input_udp_port,
+        cot_input_http_port=cot_input_http_port,
+        cot_output_http_url=cot_output_http_url,
+        http_client_cert=http_client_cert,
+        http_client_key=http_client_key,
+        http_ca_cert=http_ca_cert,
+        http_server_cert=http_server_cert,
+        http_server_key=http_server_key,
+        http_server_ca=http_server_ca,
         group_override=group_override,
         embed_federate_groups=embed_federate_groups == "true",
         group_translation=group_translation,
@@ -105,6 +129,14 @@ async def create_bridge(
         simulator_groups=simulator_groups,
         virtual_chat_enabled=virtual_chat_enabled == "true",
         virtual_chat_callsign=virtual_chat_callsign,
+        callsign_rewrite_out=callsign_rewrite_out,
+        callsign_rewrite_in=callsign_rewrite_in,
+        redact_out=redact_out,
+        redact_in=redact_in,
+        classify_access_out=classify_access_out,
+        classify_access_in=classify_access_in,
+        classify_remarks_out=classify_remarks_out,
+        classify_remarks_in=classify_remarks_in,
     )
     session.add(bridge)
     await session.commit()
@@ -151,6 +183,14 @@ async def update_bridge(
     cot_output_protocol: str = Form("tcp"),
     cot_input_port: int = Form(0),
     cot_input_udp_port: int = Form(0),
+    cot_input_http_port: int = Form(0),
+    cot_output_http_url: str = Form(""),
+    http_client_cert: str = Form(""),
+    http_client_key: str = Form(""),
+    http_ca_cert: str = Form(""),
+    http_server_cert: str = Form(""),
+    http_server_key: str = Form(""),
+    http_server_ca: str = Form(""),
     group_override: str = Form(""),
     embed_federate_groups: str = Form(""),
     group_translation: str = Form(""),
@@ -161,6 +201,14 @@ async def update_bridge(
     simulator_groups: str = Form(""),
     virtual_chat_enabled: str = Form(""),
     virtual_chat_callsign: str = Form(""),
+    callsign_rewrite_out: str = Form(""),
+    callsign_rewrite_in: str = Form(""),
+    redact_out: str = Form(""),
+    redact_in: str = Form(""),
+    classify_access_out: str = Form(""),
+    classify_access_in: str = Form(""),
+    classify_remarks_out: str = Form(""),
+    classify_remarks_in: str = Form(""),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(select(BridgeModel).where(BridgeModel.id == bridge_id))
@@ -181,6 +229,14 @@ async def update_bridge(
     bridge.cot_output_protocol = cot_output_protocol
     bridge.cot_input_port = cot_input_port
     bridge.cot_input_udp_port = cot_input_udp_port
+    bridge.cot_input_http_port = cot_input_http_port
+    bridge.cot_output_http_url = cot_output_http_url
+    bridge.http_client_cert = http_client_cert
+    bridge.http_client_key = http_client_key
+    bridge.http_ca_cert = http_ca_cert
+    bridge.http_server_cert = http_server_cert
+    bridge.http_server_key = http_server_key
+    bridge.http_server_ca = http_server_ca
     bridge.group_override = group_override
     bridge.embed_federate_groups = embed_federate_groups == "true"
     bridge.group_translation = group_translation
@@ -191,6 +247,14 @@ async def update_bridge(
     bridge.simulator_groups = simulator_groups
     bridge.virtual_chat_enabled = virtual_chat_enabled == "true"
     bridge.virtual_chat_callsign = virtual_chat_callsign
+    bridge.callsign_rewrite_out = callsign_rewrite_out
+    bridge.callsign_rewrite_in = callsign_rewrite_in
+    bridge.redact_out = redact_out
+    bridge.redact_in = redact_in
+    bridge.classify_access_out = classify_access_out
+    bridge.classify_access_in = classify_access_in
+    bridge.classify_remarks_out = classify_remarks_out
+    bridge.classify_remarks_in = classify_remarks_in
     await session.commit()
     await session.refresh(bridge)
 

@@ -10,6 +10,8 @@ from .tcp_server import CotTcpServer
 from .tcp_client import CotTcpClient
 from .udp_server import CotUdpServer
 from .udp_client import CotUdpClient
+from .http_server import CotHttpServer
+from .http_client import CotHttpClient
 from .cot_converter import (
     cot_xml_to_federated_event,
     cot_xml_to_contact_event,
@@ -20,6 +22,7 @@ from .cot_converter import (
     translate_groups,
 )
 from .cot_simulator import CotSimulator
+from .cot_transform import CotTransformer
 from . import virtual_chat
 from .wire_log import log_to_fedhub, log_from_fedhub
 
@@ -49,8 +52,14 @@ class Bridge:
                  fedhub_port: int, jwt_token: str,
                  cot_input_port: int = 0,
                  cot_input_udp_port: int = 0,
+                 cot_input_http_port: int = 0,
                  cot_output_host: str = "", cot_output_port: int = 0,
                  cot_output_protocol: str = "tcp",
+                 cot_output_http_url: str = "",
+                 http_client_cert: str = "", http_client_key: str = "",
+                 http_ca_cert: str = "",
+                 http_server_cert: str = "", http_server_key: str = "",
+                 http_server_ca: str = "",
                  group_override: str = "",
                  embed_federate_groups: bool = False,
                  group_translation: str = "",
@@ -60,7 +69,11 @@ class Bridge:
                  simulator_direction: str = "fedhub",
                  simulator_groups: str = "",
                  virtual_chat_enabled: bool = False,
-                 virtual_chat_callsign: str = ""):
+                 virtual_chat_callsign: str = "",
+                 callsign_rewrite_out: str = "", callsign_rewrite_in: str = "",
+                 redact_out: str = "", redact_in: str = "",
+                 classify_access_out: str = "", classify_access_in: str = "",
+                 classify_remarks_out: str = "", classify_remarks_in: str = ""):
         self.id = bridge_id
         self.name = name
         self.fedhub_address = fedhub_address
@@ -68,9 +81,17 @@ class Bridge:
         self.jwt_token = jwt_token
         self.cot_input_port = cot_input_port
         self.cot_input_udp_port = cot_input_udp_port
+        self.cot_input_http_port = cot_input_http_port
         self.cot_output_host = cot_output_host
         self.cot_output_port = cot_output_port
         self.cot_output_protocol = (cot_output_protocol or "tcp").lower()
+        self.cot_output_http_url = cot_output_http_url
+        self.http_client_cert = http_client_cert
+        self.http_client_key = http_client_key
+        self.http_ca_cert = http_ca_cert
+        self.http_server_cert = http_server_cert
+        self.http_server_key = http_server_key
+        self.http_server_ca = http_server_ca
         self.group_override = group_override
         self.embed_federate_groups = embed_federate_groups
         self.group_translation = group_translation
@@ -93,6 +114,17 @@ class Bridge:
             or virtual_chat.default_callsign(name)
         )
         self.virtual_chat_uid = virtual_chat.virtual_uid(bridge_id)
+        # Direction-scoped CoT transforms. _transform_out rewrites CoT heading
+        # out the CoT output (applied in _convert_inbound); _transform_in
+        # rewrites CoT arriving on the CoT input (applied in _convert_outbound).
+        self._transform_out = CotTransformer(
+            callsign_rewrite=callsign_rewrite_out, redact=redact_out,
+            classify_access=classify_access_out, classify_remarks=classify_remarks_out,
+        )
+        self._transform_in = CotTransformer(
+            callsign_rewrite=callsign_rewrite_in, redact=redact_in,
+            classify_access=classify_access_in, classify_remarks=classify_remarks_in,
+        )
         self.status = BridgeStatus.STOPPED
         self._tasks: list[asyncio.Task] = []
 
@@ -175,6 +207,20 @@ class Bridge:
                 name=f"{self.name}-udp-srv"
             ))
 
+        # HTTP server (CoT XML input via POST, optionally mTLS)
+        if self.cot_input_http_port:
+            http_srv = CotHttpServer(
+                self.cot_input_http_port,
+                server_cert=self.http_server_cert,
+                server_key=self.http_server_key,
+                ca_cert=self.http_server_ca,
+                bridge_name=self.name,
+            )
+            self._tasks.append(asyncio.create_task(
+                http_srv.start(self._cot_inbound),
+                name=f"{self.name}-http-srv"
+            ))
+
         # Simulator (generates random CoT events). Direction selects where the
         # synthetic events go: toward FedHub (the CoT->protobuf path), out the
         # CoT output (the protobuf->CoT path), or both.
@@ -223,8 +269,20 @@ class Bridge:
                 name=f"{self.name}-virtual-chat"
             ))
 
-        # TCP/UDP client (CoT XML output)
-        if self.cot_output_host and self.cot_output_port:
+        # CoT output client (HTTP/HTTPS, UDP, or TCP)
+        if self.cot_output_protocol in ("http", "https") and self.cot_output_http_url:
+            http_cli = CotHttpClient(
+                self.cot_output_http_url,
+                client_cert=self.http_client_cert,
+                client_key=self.http_client_key,
+                ca_cert=self.http_ca_cert,
+                bridge_name=self.name,
+            )
+            self._tasks.append(asyncio.create_task(
+                http_cli.start(self._cot_outbound),
+                name=f"{self.name}-http-cli"
+            ))
+        elif self.cot_output_host and self.cot_output_port:
             if self.cot_output_protocol == "udp":
                 udp_cli = CotUdpClient(self.cot_output_host, self.cot_output_port, self.name)
                 self._tasks.append(asyncio.create_task(
@@ -238,8 +296,23 @@ class Bridge:
                     name=f"{self.name}-tcp-cli"
                 ))
 
+        # Surface any task that dies unexpectedly. Without this a task that
+        # raises at startup (e.g. an HTTP transport with an unreadable cert)
+        # would fail silently, since tasks are only awaited again on stop().
+        for task in self._tasks:
+            task.add_done_callback(self._log_task_exception)
+
         self.status = BridgeStatus.RUNNING
         logger.info(f"[{self.name}] Bridge running ({len(self._tasks)} tasks)")
+
+    def _log_task_exception(self, task: asyncio.Task):
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.error(
+                f"[{self.name}] Task {task.get_name()} exited with error: {exc!r}"
+            )
 
     async def stop(self):
         """Stop all bridge components."""
@@ -292,6 +365,10 @@ class Bridge:
                         f"chat (uid={event.event.uid}) as broadcast to "
                         f"'{virtual_chat.BROADCAST_ROOM}'"
                     )
+                # Apply egress transforms (callsign affix, redaction,
+                # classification) to the CoT now that it is fully reconstructed.
+                if self._transform_out.enabled():
+                    cot_xml = self._transform_out.apply(cot_xml)
                 log_from_fedhub(self.name, event, cot_xml)
                 await self._cot_outbound.put(cot_xml)
             except asyncio.CancelledError:
@@ -317,6 +394,12 @@ class Bridge:
         while True:
             try:
                 cot_xml = await self._cot_inbound.get()
+
+                # Apply ingress transforms before parsing so rewritten callsigns
+                # reach screenName/contact-announce and a stamped access reaches
+                # the FederatedEvent.
+                if self._transform_in.enabled():
+                    cot_xml = self._transform_in.apply(cot_xml)
 
                 # Group precedence: an explicit group_override always wins
                 # (operator intent). Otherwise restore any federation groups a
