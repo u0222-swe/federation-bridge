@@ -84,7 +84,7 @@ def test_set_attribute():
 def test_zero_point():
     out = _parse(CotTransformer(redact="zero-point").apply(_cot()))
     pt = out.find("point")
-    assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0", "0", "0", "0", "0")
+    assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0.0", "0.0", "0.0", "0.0", "0.0")
 
 
 def test_zero_point_adds_missing_coords_for_valid_cot():
@@ -95,7 +95,7 @@ def test_zero_point_adds_missing_coords_for_valid_cot():
         '<point lat="59.3" lon="18.0"/><detail/></event>'
     )
     pt = _parse(CotTransformer(redact="zero-point").apply(partial)).find("point")
-    assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0", "0", "0", "0", "0")
+    assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0.0", "0.0", "0.0", "0.0", "0.0")
 
 
 # -- classification -----------------------------------------------------------
@@ -156,5 +156,5 @@ def test_combined_transforms_apply_together():
     out = _parse(t.apply(_cot(access_attr="Undefined")))
     assert out.find("detail/contact").get("callsign") == "ALPHA@AREA1"
     assert out.find("detail/takv") is None
-    assert out.find("point").get("lat") == "0"
+    assert out.find("point").get("lat") == "0.0"
     assert out.get("access") == "S3CRET"

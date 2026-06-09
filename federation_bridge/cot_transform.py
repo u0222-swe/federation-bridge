@@ -184,7 +184,7 @@ class CotTransformer:
                 # island"). This strips the real location, it does not fuzz it.
                 for el in root.iter("point"):
                     for coord in _POINT_COORDS:
-                        el.set(coord, "0")
+                        el.set(coord, "0.0")
 
     def _apply_classification(self, root: ET.Element) -> None:
         events = list(root.iter("event"))
