@@ -3,8 +3,6 @@
 
 import logging
 from typing import Optional
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from .bridge import Bridge, BridgeStatus
 from .models import Bridge as BridgeModel
 
@@ -17,16 +15,15 @@ class BridgeManager:
     def __init__(self):
         self._bridges: dict[str, Bridge] = {}
 
-    async def load_and_start_saved(self, session: AsyncSession):
-        """Load enabled bridges from DB and start them."""
-        result = await session.execute(
-            select(BridgeModel).where(BridgeModel.enabled == True)
-        )
-        for row in result.scalars():
+    async def load_and_start_saved(self, store):
+        """Load enabled bridges from the YAML store and start them."""
+        for cfg in store.list_bridges():
+            if not cfg.enabled:
+                continue
             try:
-                await self.start_bridge_from_model(row)
+                await self.start_bridge_from_model(cfg)
             except Exception as e:
-                logger.error(f"Failed to start bridge '{row.name}': {e}")
+                logger.error(f"Failed to start bridge '{cfg.name}': {e}")
 
     async def start_bridge_from_model(self, model: BridgeModel) -> Bridge:
         """Create and start a bridge from a DB model."""

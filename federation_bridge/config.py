@@ -2,8 +2,9 @@
 import os
 
 DATA_DIR = os.getenv("BRIDGE_DATA_DIR", "/opt/federation-bridge/data")
-DB_PATH = os.path.join(DATA_DIR, "bridges.db")
-DATABASE_URL = f"sqlite+aiosqlite:///{DB_PATH}"
+# Bridge configs live in a single human-editable YAML file. Override the whole
+# path with BRIDGES_CONFIG, otherwise it sits under BRIDGE_DATA_DIR.
+BRIDGES_FILE = os.getenv("BRIDGES_CONFIG", os.path.join(DATA_DIR, "bridges.yaml"))
 
 FEDHUB_DEFAULT_ADDRESS = os.getenv("FEDHUB_DEFAULT_ADDRESS", "127.0.0.1")
 FEDHUB_DEFAULT_PORT = int(os.getenv("FEDHUB_DEFAULT_PORT", "9103"))

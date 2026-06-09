@@ -81,7 +81,7 @@ the FedHub host), give it a JWT token, and it federates CoT in both directions.
 - Built-in CoT simulator for testing
 - Virtual Chat User for broadcast-chat relaying
 - Optional per-message wire logging for debugging
-- SQLite persistence (bridges survive restarts)
+- Human-editable YAML persistence (bridges survive restarts; provision by file or via the UI)
 - Optional systemd installer (`setup.sh`)
 
 ---
@@ -105,7 +105,7 @@ TAK Server ─> FedHub ──>  gRPC ──> Converter ──> TCP/UDP Cli ─�
               :9103    │  Recv     Proto→XML     :host:port      │  System
                        │                                          │
                        │  ┌──────────┐  ┌──────────┐             │
-                       │  │ Web UI   │  │ SQLite   │             │
+                       │  │ Web UI   │  │ YAML     │             │
                        │  │ :8090    │  │ bridges  │             │
                        │  └──────────┘  └──────────┘             │
                        └──────────────────────────────────────────┘
@@ -239,7 +239,7 @@ python3.12 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Use a writable data directory for the SQLite database
+# Use a writable data directory for the bridges.yaml config
 export BRIDGE_DATA_DIR="$PWD/data"
 mkdir -p "$BRIDGE_DATA_DIR"
 
@@ -289,7 +289,8 @@ sed -i 's/^import \(.*_pb2\) as/from . import \1 as/' \
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BRIDGE_DATA_DIR` | `/opt/federation-bridge/data` | Directory for the SQLite database. Must be writable. |
+| `BRIDGE_DATA_DIR` | `/opt/federation-bridge/data` | Directory holding `bridges.yaml`. Must be writable. |
+| `BRIDGES_CONFIG` | `${BRIDGE_DATA_DIR}/bridges.yaml` | Full path to the bridge config YAML file (override the location directly). |
 | `FEDHUB_DEFAULT_ADDRESS` | `127.0.0.1` | Default FedHub address pre-filled in the create form. Point it at your FedHub host. |
 | `FEDHUB_DEFAULT_PORT` | `9103` | Default FedHub JWT auth port. |
 | `COT_PORT_RANGE_START` | `10001` | Start of the allowed CoT input port range. |
@@ -301,9 +302,44 @@ sed -i 's/^import \(.*_pb2\) as/from . import \1 as/' \
 
 | Path | Description |
 |------|-------------|
-| `${BRIDGE_DATA_DIR}/bridges.db` | SQLite database holding bridge configs (including JWT tokens) |
+| `${BRIDGE_DATA_DIR}/bridges.yaml` | YAML file holding bridge configs (including JWT tokens). See [Provisioning via YAML](#provisioning-via-yaml). |
 | `proto/` | Protobuf definitions |
 | `federation_bridge/proto_gen/` | Generated protobuf Python stubs |
+
+### Provisioning via YAML
+
+Bridge configs live in a single human-editable file (`bridges.yaml`). The Web UI
+reads and writes the same file, so you can provision bridges by editing it
+directly (and version-control it) or through the UI — both produce the same YAML.
+A UI save preserves hand-added comments and key order on the other bridges.
+
+The file is a top-level list of bridge entries. Only `name` is required;
+everything else takes a default. `id` is auto-assigned on first load if omitted.
+Booleans are bare `true`/`false`; ports are integers.
+
+```yaml
+# bridges.yaml
+- name: partners
+  fedhub_address: 127.0.0.1
+  fedhub_port: 9103
+  jwt_token: eyJhbGciOi...        # plaintext — protect this file
+  cot_input_udp_port: 10001
+  cot_output_protocol: https
+  cot_output_http_url: https://guard.example:10400/ieg/input/cot
+  http_client_cert: /etc/fedbridge/client.pem
+  http_client_key: /etc/fedbridge/client.key
+  http_ca_cert: /etc/fedbridge/ca.pem
+  callsign_rewrite_out: add-suffix:@AREA1
+  classify_access_out: S3CRET
+  enabled: true
+- name: quicktest                 # minimal: gets an id + defaults on load
+  fedhub_address: 127.0.0.1
+  jwt_token: eyJ...
+```
+
+Set `enabled: false` to keep a bridge in the file without auto-starting it.
+Changes made by hand take effect on the next restart; changes via the UI apply
+immediately.
 
 ---
 
@@ -744,17 +780,17 @@ A `200 OK` means the event was accepted and queued toward FedHub. Enable
 
 ### Bridge Lifecycle
 
-- Bridges are stored in SQLite and persist across restarts.
+- Bridges are stored in `bridges.yaml` and persist across restarts.
 - Bridges marked `enabled` auto-start when the service starts.
 - Starting/stopping via the Web UI updates the `enabled` flag.
-- Deleting a bridge stops it and removes it from the database.
+- Deleting a bridge stops it and removes it from the file.
 
 ### Backup
 
-The SQLite database holds all bridge configuration (including JWT tokens):
+The YAML file holds all bridge configuration (including JWT tokens):
 
 ```bash
-cp "${BRIDGE_DATA_DIR}/bridges.db" "${BRIDGE_DATA_DIR}/bridges.db.bak"
+cp "${BRIDGE_DATA_DIR}/bridges.yaml" "${BRIDGE_DATA_DIR}/bridges.yaml.bak"
 ```
 
 ---
@@ -903,7 +939,7 @@ operators**. In particular:
   edit, and delete bridges and read truncated tokens. Put it behind a VPN,
   reverse proxy with auth, or a firewall — never expose it to the public
   internet.
-- **JWT tokens are stored in plaintext** in the SQLite database. Protect the
+- **JWT tokens are stored in plaintext** in `bridges.yaml`. Protect the
   `BRIDGE_DATA_DIR` (filesystem permissions, full-disk encryption) and back it
   up securely.
 - **The gRPC connection to FedHub uses an insecure channel** (JWT provides
