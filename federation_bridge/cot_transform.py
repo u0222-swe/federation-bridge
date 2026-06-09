@@ -178,8 +178,10 @@ class CotTransformer:
             elif kind == "zero_point":
                 # Set ALL five coordinates, not only the ones already present.
                 # CoT requires lat/lon/hae/ce/le on <point>; zeroing just the
-                # existing attributes would leave an invalid point whenever the
-                # source omitted any of them.
+                # existing attributes would leave an *incomplete* point if the
+                # source omitted any — that is what breaks the receiving side,
+                # not the 0,0 value (TAK accepts and displays 0,0 as "null
+                # island"). This strips the real location, it does not fuzz it.
                 for el in root.iter("point"):
                     for coord in _POINT_COORDS:
                         el.set(coord, "0")

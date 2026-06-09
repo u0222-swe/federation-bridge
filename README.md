@@ -629,6 +629,22 @@ newline-separated directives:
 
 Example obfuscation: `-takv, -_flow-tags_, zero-point`.
 
+> **`zero-point` strips the real position, it does not fuzz it.** It sets the
+> coordinates to `0,0` ("null island"), a valid point that TAK/ATAK accept and
+> **display** — the marker simply appears at `0,0`, off the coast of Africa. Use
+> it to remove the true location while still emitting a well-formed event. To
+> keep an *approximate, in-area* position instead, relocate to a decoy with a
+> `set` directive, e.g. `point@lat=59.3, point@lon=18.0` (optionally widen
+> `point@ce=10000` to reflect the reduced accuracy).
+>
+> `zero-point` writes **all five** coordinates (`lat/lon/hae/ce/le`) as `0`,
+> which matters: an *incomplete* `<point>` (missing some coords) is what breaks
+> the receiving side, not the `0,0` value. (Confirmed against TAKServer: lat/lon
+> are parsed with `Double.parseDouble`, and `0,0` passes its value-scrubber range
+> check. The federation wire format is proto3, so a `0.0` coordinate is simply
+> omitted on the wire and read back as `0.0` by the peer — normal and
+> wire-correct.)
+
 ### Classification (access attribute)
 
 Stamp the event's `access` attribute so a CDS can release per policy:

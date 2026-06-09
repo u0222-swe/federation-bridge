@@ -91,7 +91,7 @@
             <label>Callsign Rewrite <input type="text" name="callsign_rewrite_out" value="{{ bridge.callsign_rewrite_out if bridge else '' }}" placeholder="add-suffix:@AREA1"></label>
             <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
             <label>Redact <input type="text" name="redact_out" value="{{ bridge.redact_out if bridge else '' }}" placeholder="-takv, -_flow-tags_, zero-point"></label>
-            <small>Comma/newline directives: <code>-tag</code> (remove element), <code>-tag@attr</code> (remove attr), <code>tag@attr=value</code> (set attr), <code>zero-point</code> (zero point coords).</small>
+            <small>Comma/newline directives: <code>-tag</code> (remove element), <code>-tag@attr</code> (remove attr), <code>tag@attr=value</code> (set attr), <code>zero-point</code> (set point to 0,0 — strips the real location; the marker still displays, at null island).</small>
             <label>Classification (access) <input type="text" name="classify_access_out" value="{{ bridge.classify_access_out if bridge else '' }}" placeholder="S3CRET"></label>
             <small>Stamped on <code>event/@access</code> when it is unset or <code>Undefined</code>.</small>
             <label>Classification from Remarks <input type="text" name="classify_remarks_out" value="{{ bridge.classify_remarks_out if bridge else '' }}" placeholder="#UNCLASS=UNCLASSIFIED"></label>
@@ -109,7 +109,7 @@
             <label>Callsign Rewrite <input type="text" name="callsign_rewrite_in" value="{{ bridge.callsign_rewrite_in if bridge else '' }}" placeholder="strip-suffix:@AREA1"></label>
             <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
             <label>Redact <input type="text" name="redact_in" value="{{ bridge.redact_in if bridge else '' }}" placeholder="-takv, zero-point"></label>
-            <small>Comma/newline directives: <code>-tag</code>, <code>-tag@attr</code>, <code>tag@attr=value</code>, <code>zero-point</code>.</small>
+            <small>Comma/newline directives: <code>-tag</code>, <code>-tag@attr</code>, <code>tag@attr=value</code>, <code>zero-point</code> (sets point to 0,0 — strips the real location; the marker still displays, at null island).</small>
             <label>Classification (access) <input type="text" name="classify_access_in" value="{{ bridge.classify_access_in if bridge else '' }}" placeholder="S3CRET"></label>
             <small>Stamped on <code>event/@access</code> when it is unset or <code>Undefined</code>.</small>
             <label>Classification from Remarks <input type="text" name="classify_remarks_in" value="{{ bridge.classify_remarks_in if bridge else '' }}" placeholder="#UNCLASS=UNCLASSIFIED"></label>
