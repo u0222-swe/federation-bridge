@@ -176,10 +176,13 @@ class CotTransformer:
                 for el in root.iter(tag):
                     el.set(attr, value)
             elif kind == "zero_point":
+                # Set ALL five coordinates, not only the ones already present.
+                # CoT requires lat/lon/hae/ce/le on <point>; zeroing just the
+                # existing attributes would leave an invalid point whenever the
+                # source omitted any of them.
                 for el in root.iter("point"):
                     for coord in _POINT_COORDS:
-                        if el.get(coord) is not None:
-                            el.set(coord, "0")
+                        el.set(coord, "0")
 
     def _apply_classification(self, root: ET.Element) -> None:
         events = list(root.iter("event"))

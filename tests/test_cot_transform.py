@@ -87,6 +87,17 @@ def test_zero_point():
     assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0", "0", "0", "0", "0")
 
 
+def test_zero_point_adds_missing_coords_for_valid_cot():
+    # A source <point> missing hae/ce/le must come out complete and zeroed,
+    # not as a half-populated (invalid) point.
+    partial = (
+        '<event version="2.0" uid="x" type="a-f-G">'
+        '<point lat="59.3" lon="18.0"/><detail/></event>'
+    )
+    pt = _parse(CotTransformer(redact="zero-point").apply(partial)).find("point")
+    assert (pt.get("lat"), pt.get("lon"), pt.get("hae"), pt.get("ce"), pt.get("le")) == ("0", "0", "0", "0", "0")
+
+
 # -- classification -----------------------------------------------------------
 
 def test_classify_access_when_missing():
