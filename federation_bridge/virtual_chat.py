@@ -59,7 +59,7 @@ def build_virtual_pli_xml(uid: str, callsign: str,
         f'<?xml version="1.0" encoding="UTF-8"?>'
         f'<event version="2.0" uid="{uid}" type="{VIRTUAL_PLI_TYPE}" '
         f'time="{time_str}" start="{time_str}" stale="{stale_str}" how="m-g">'
-        f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0" ce="9999999" le="9999999"/>'
+        f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0.0" ce="9999999.0" le="9999999.0"/>'
         f'<detail>'
         f'<contact callsign="{callsign}" endpoint="*:-1:stcp"/>'
         f'<__group name="Cyan" role="Team Member"/>'

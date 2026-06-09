@@ -74,7 +74,7 @@ def generate_cot_xml(uid: str = None, callsign: str = None, groups=None) -> str:
         f'<?xml version="1.0" encoding="UTF-8"?>'
         f'<event version="2.0" uid="{uid}" type="{cot_type}" '
         f'time="{time_str}" start="{time_str}" stale="{stale_str}" how="h-e">'
-        f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0" ce="9999999" le="9999999"/>'
+        f'<point lat="{lat:.6f}" lon="{lon:.6f}" hae="0.0" ce="9999999.0" le="9999999.0"/>'
         f'<detail>'
         f'<contact callsign="{callsign}" endpoint="*:-1:stcp"/>'
         f'<__group name="Cyan" role="Team Member"/>'
