@@ -1,3 +1,4 @@
+aiohttp>=3.9,<4
 aiosqlite>=0.20,<1
 fastapi>=0.115,<1
 grpcio>=1.70,<2

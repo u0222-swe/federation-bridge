@@ -58,6 +58,28 @@ form { margin: 1rem 0; }
     padding: 1.25rem 1.5rem;
 }
 
+/* Form sections */
+fieldset {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.1rem 0.25rem;
+    margin: 0 0 1.25rem;
+    min-width: 0;
+}
+fieldset legend {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+    padding: 0 0.4rem;
+}
+/* Dependent groups dimmed and non-interactive until their toggle is active */
+.group-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 label { display: block; margin: 0 0 1rem; font-weight: 500; }
 
 input[type="text"],

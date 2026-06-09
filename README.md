@@ -30,13 +30,15 @@ protocol themselves.
 9. [Testing with the Simulator](#testing-with-the-simulator)
 10. [Group Override](#group-override)
 11. [Virtual Chat User](#virtual-chat-user)
-12. [Operational Guide](#operational-guide)
-13. [Troubleshooting](#troubleshooting)
-14. [Technical Reference](#technical-reference)
-15. [Security Considerations](#security-considerations)
-16. [Contributing](#contributing)
-17. [License](#license)
-18. [Acknowledgements](#acknowledgements)
+12. [CoT Transformations](#cot-transformations)
+13. [HTTP POST Transport (mTLS)](#http-post-transport-mtls)
+14. [Operational Guide](#operational-guide)
+15. [Troubleshooting](#troubleshooting)
+16. [Technical Reference](#technical-reference)
+17. [Security Considerations](#security-considerations)
+18. [Contributing](#contributing)
+19. [License](#license)
+20. [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -69,7 +71,10 @@ the FedHub host), give it a JWT token, and it federates CoT in both directions.
 - JWT token authentication to FedHub (default port 9103, no certificates)
 - Bidirectional CoT XML ↔ protobuf conversion
 - Multiple concurrent bridges, each independently configured
-- TCP **and** UDP for both CoT input and output
+- TCP, UDP **and** HTTP(S) POST for both CoT input and output, with optional
+  mutual TLS on the HTTP transport
+- Per-direction CoT transformations: callsign prefix/suffix, element/attribute
+  redaction, and classification stamping of the `access` attribute
 - Group override to control which FedHub groups receive the traffic
 - Optional embedding of FedHub federation groups in CoT so they survive a
   bridge-to-bridge hop
@@ -115,9 +120,11 @@ Each bridge runs as a set of asyncio tasks:
 | **gRPC Client** | Connects to FedHub via JWT token auth, bidirectional streaming |
 | **TCP Server** | Listens for incoming CoT XML on a configured TCP port |
 | **UDP Server** | Listens for incoming CoT XML on a configured UDP port (datagrams) |
-| **TCP/UDP Client** | Sends CoT XML to a configured destination host:port (selectable protocol) |
+| **HTTP Server** | (optional) Receives CoT XML via HTTP POST on a configured port, optionally mTLS |
+| **TCP/UDP/HTTP Client** | Sends CoT XML to a configured destination (TCP/UDP host:port, or HTTP(S) POST to a URL with optional mTLS) |
 | **Converter (inbound)** | `FederatedEvent` protobuf → CoT XML |
 | **Converter (outbound)** | CoT XML → `FederatedEvent` protobuf |
+| **Transformer** | (optional) Applies per-direction callsign/redaction/classification transforms to the CoT |
 | **Simulator** | (optional) Generates random CoT events for testing |
 | **Virtual Chat User** | (optional) Announces a stationary contact; direct chats to it are re-broadcast on the CoT output |
 
@@ -190,7 +197,9 @@ direction.
 | Feature | Role across a diode / CDS |
 |---------|---------------------------|
 | **UDP CoT I/O** | Data diodes are one-way and connectionless — only UDP datagrams cross cleanly; TCP cannot complete its handshake. |
+| **HTTP(S) POST CoT I/O** | Some guards prefer (or only release) CoT over an HTTP POST API, often with mutual TLS, rather than raw UDP. The bridge can POST each event to a guard's ingest URL and/or receive POSTed CoT on a listener. See [HTTP POST Transport](#http-post-transport-mtls). |
 | **Plain CoT XML on the wire** | A CDS/guard can parse, validate, and release human-readable XML. It cannot do that with TLS-encrypted protobuf. (Enable [wire logging](#wire-logging-debug) for audit/accreditation.) |
+| **CoT transformations** | A guard releases content per policy: stamp a classification into `access` (from a default or a `//remarks` marker), redact elements/attributes that must not cross (e.g. `takv`, location), and tag callsigns with the originating domain. See [CoT Transformations](#cot-transformations). |
 | **Embed federation groups in CoT** | Routing groups live only in the protobuf; over the link only the CoT survives. Embedding carries the group selection across so the far FedHub can still route. See [Group Override](#group-override). |
 | **Group translation** | The two domains are administratively separate and usually name their groups differently; translate names on each side. |
 | **Virtual Chat User** | GeoChat normally needs a round-trip (contact registration, direct addressing, delivery ACKs). Over a one-way link there is no return channel, so it presents a single addressable contact whose incoming direct chats are re-broadcast locally — letting chat traverse a one-way path as broadcast. |
@@ -341,11 +350,17 @@ override, simulator and Virtual Chat User status, plus lifecycle controls.
 
    Optional fields:
    - **Description**: free-form text
-   - **CoT Input Port (TCP)** and/or **CoT Input Port (UDP)**: ports to receive
-     CoT XML. Set to `0` to disable a listener. Must be inside the
-     `COT_PORT_RANGE_*` window (default `10001–10100`).
-   - **CoT Output Host/Port** and **Output Protocol** (`tcp`/`udp`): where to
-     forward CoT received from FedHub. Leave host blank to disable output.
+   - **CoT Input Port (TCP)** / **(UDP)** / **(HTTP POST)**: ports to receive
+     CoT XML. Set to `0` to disable a listener. The TCP/UDP ports must be inside
+     the `COT_PORT_RANGE_*` window (default `10001–10100`). The HTTP listener
+     optionally takes mTLS certs. See
+     [HTTP POST Transport](#http-post-transport-mtls).
+   - **CoT Output Protocol** (`tcp`/`udp`/`http`/`https`) plus either a **CoT
+     Output Host/Port** (TCP/UDP) or a **CoT Output URL** (HTTP, optionally
+     mTLS): where to forward CoT received from FedHub. Leave blank to disable
+     output.
+   - **CoT Transformations** (per direction): callsign rewrite, redaction, and
+     classification stamping. See [CoT Transformations](#cot-transformations).
    - **Group Override**: comma-separated FedHub group names to stamp on outgoing
      events. See [Group Override](#group-override).
    - **Enable CoT Simulator** + interval/tracks: see
@@ -566,6 +581,158 @@ sent.
 
 ---
 
+## CoT Transformations
+
+A bridge can rewrite the CoT XML as it crosses the boundary. This is primarily
+for **cross-domain / CDS deployments**, where a guard releases content per
+policy: you tag callsigns with their originating domain, strip elements that
+must not cross, and stamp a classification the guard can act on.
+
+Each transform is configured **per direction**, independently:
+
+- **Outbound** — applied to CoT leaving toward the **CoT output** (the
+  FedHub → CoT path), i.e. what you send toward a guard/CDS.
+- **Inbound** — applied to CoT arriving on the **CoT input** (the CoT → FedHub
+  path) before it is federated, e.g. to undo a marker the far side added.
+
+In the Web UI, tick **Enable outbound transforms** / **Enable inbound
+transforms** and fill in any of the fields below (empty = that transform is off).
+
+### Callsign Rewrite
+
+Add or strip a marker on callsigns (`<contact callsign>`, `<marti><dest
+callsign>`, `<__chat senderCallsign>`) so operators can see where a track
+originates. Format `op:value`:
+
+| op | Effect |
+|----|--------|
+| `add-suffix` | `ALPHA` → `ALPHA@AREA1` |
+| `add-prefix` | `ALPHA` → `@AREA1_ALPHA` (with value `@AREA1_`) |
+| `strip-suffix` | `ALPHA@AREA1` → `ALPHA` |
+| `strip-prefix` | `@AREA1_ALPHA` → `ALPHA` |
+
+Typical pairing: `add-suffix:@AREA1` outbound on the sending bridge, and
+`strip-suffix:@AREA1` inbound on the receiving bridge. Adds are idempotent (a
+callsign that already carries the marker is left unchanged).
+
+### Redact
+
+Remove or rewrite elements/attributes that should not cross. Comma- or
+newline-separated directives:
+
+| Directive | Effect |
+|-----------|--------|
+| `-takv` | Remove every `<takv>` element |
+| `-contact@endpoint` | Remove the `endpoint` attribute from `<contact>` |
+| `point@hae=0` | Set the `hae` attribute on `<point>` to `0` |
+| `zero-point` | Zero the `lat`/`lon`/`hae`/`ce`/`le` coordinates of `<point>` |
+
+Example obfuscation: `-takv, -_flow-tags_, zero-point`.
+
+> **`zero-point` strips the real position, it does not fuzz it.** It sets the
+> coordinates to `0,0` ("null island"), a valid point that TAK/ATAK accept and
+> **display** — the marker simply appears at `0,0`, off the coast of Africa. Use
+> it to remove the true location while still emitting a well-formed event. To
+> keep an *approximate, in-area* position instead, relocate to a decoy with a
+> `set` directive, e.g. `point@lat=59.3, point@lon=18.0` (optionally widen
+> `point@ce=10000` to reflect the reduced accuracy).
+>
+> `zero-point` writes **all five** coordinates (`lat/lon/hae/ce/le`) as `0`,
+> which matters: an *incomplete* `<point>` (missing some coords) is what breaks
+> the receiving side, not the `0,0` value. (Confirmed against TAKServer: lat/lon
+> are parsed with `Double.parseDouble`, and `0,0` passes its value-scrubber range
+> check. The federation wire format is proto3, so a `0.0` coordinate is simply
+> omitted on the wire and read back as `0.0` by the peer — normal and
+> wire-correct.)
+
+### Classification (access attribute)
+
+Stamp the event's `access` attribute so a CDS can release per policy:
+
+- **Classification (access)** — a value (e.g. `S3CRET`) written to
+  `event/@access` when it is unset or the literal `Undefined`.
+- **Classification from Remarks** — `preamble=ACCESS` (e.g.
+  `#UNCLASS=UNCLASSIFIED`). If any `<remarks>` text starts with the preamble, the
+  `access` attribute is forced to `ACCESS` — letting an operator downgrade a
+  specific event by typing a marker in chat/remarks. This rule overrides the
+  default above.
+
+### Example: sending toward a CDS
+
+On the bridge that emits CoT toward the guard, enable **outbound** transforms:
+
+```
+Callsign Rewrite:           add-suffix:@AREA1
+Redact:                     -takv, -_flow-tags_, zero-point
+Classification (access):    S3CRET
+Classification from Remarks: #UNCLASS=UNCLASSIFIED
+```
+
+On the bridge that ingests CoT on the far side, enable **inbound** transforms to
+remove the marker:
+
+```
+Callsign Rewrite:  strip-suffix:@AREA1
+```
+
+> Transforms operate on the CoT XML; if a message is not well-formed XML it is
+> passed through unchanged (and a warning is logged).
+
+---
+
+## HTTP POST Transport (mTLS)
+
+In addition to TCP and UDP, a bridge can send and receive CoT over **HTTP
+POST**, with optional **mutual TLS**. This suits guards/CDS ingest APIs that
+speak HTTP(S) rather than raw UDP, and gives a reliable, connection-oriented
+path (with backpressure) where a diode is not strictly one-way.
+
+### Output (HTTP client)
+
+Set **CoT Output Protocol** to `HTTP POST` or `HTTPS POST (mTLS)` and provide a
+**CoT Output URL**. Each event received from FedHub is POSTed to that URL with
+`Content-Type: application/xml` over a persistent session (one transient-error
+retry). For HTTPS, supply mTLS material as file paths:
+
+| Field | Purpose |
+|-------|---------|
+| **CoT Output URL** | e.g. `https://guard.example:10400/ieg/input/cot` |
+| **HTTP Client Cert** | Client certificate presented for mTLS |
+| **HTTP Client Key** | Client private key |
+| **HTTP CA Cert** | CA used to verify the server (omit to disable verification — logged) |
+
+### Input (HTTP server)
+
+Set a **CoT Input Port (HTTP POST)**. The bridge accepts `POST` of CoT XML on
+that port (other methods get `405`); the body may contain one or more
+`</event>`-delimited events. TLS material (file paths):
+
+| Field | Purpose |
+|-------|---------|
+| **HTTP Server Cert** | Server certificate (enables TLS) |
+| **HTTP Server Key** | Server private key |
+| **HTTP Server CA** | CA to require **and** verify a client certificate (mutual TLS) |
+
+Leave the cert fields empty for plain HTTP; cert + key give one-way TLS; adding
+the CA requires a client certificate (mTLS).
+
+### Verify
+
+```bash
+# Plain HTTP input on port 18443
+curl -X POST --data-binary @event.xml http://<bridge-host>:18443/cot
+
+# mTLS input
+curl -X POST --data-binary @event.xml \
+  --cert client.pem --key client.key --cacert ca.pem \
+  https://<bridge-host>:18443/cot
+```
+
+A `200 OK` means the event was accepted and queued toward FedHub. Enable
+[wire logging](#wire-logging-debug) to confirm it was converted and forwarded.
+
+---
+
 ## Operational Guide
 
 ### Running
@@ -646,8 +813,12 @@ This writes every message in both directions:
 
 Each block starts with a header `=== <iso-timestamp> bridge=<name> uid=<uid> ===`
 followed by the inbound and converted outbound payloads in plain text — easy to
-`grep` and diff. Files rotate at 50 MB and keep 3 backups. Direction names use
-FedHub as the fixed reference point. Disable by unsetting `FEDBRIDGE_WIRE_LOG`.
+`grep` and diff. The `CoT XML in` payload is the message exactly as received
+(before any ingress transform); when a [CoT transform](#cot-transformations)
+changes it, the result is shown in an extra `CoT XML in (after transform)` block
+so redaction/rewrite stays auditable. Files rotate at 50 MB and keep 3 backups.
+Direction names use FedHub as the fixed reference point. Disable by unsetting
+`FEDBRIDGE_WIRE_LOG`.
 
 > Wire logs contain full message payloads. Treat them as sensitive and clean
 > them up after debugging.
@@ -738,8 +909,11 @@ operators**. In particular:
 - **The gRPC connection to FedHub uses an insecure channel** (JWT provides
   authentication, not transport encryption). Run it over localhost or a trusted
   network, or tunnel it.
-- **CoT input/output ports are unauthenticated.** Restrict them to trusted
-  sources with host/network firewalls.
+- **TCP/UDP CoT input/output is unauthenticated and unencrypted.** Restrict
+  those ports to trusted sources with host/network firewalls. The HTTP transport
+  can use mutual TLS (client-cert auth + encryption) — prefer
+  [HTTPS POST with mTLS](#http-post-transport-mtls) when CoT crosses an untrusted
+  segment.
 - **Wire logs** (when enabled) contain full message payloads; treat them as
   sensitive.
 

@@ -1,0 +1,161 @@
+{# Shared bridge form used by both the create page (bridges.html, bridge=None)
+   and the edit page (bridge_edit.html, bridge=<model>). Grouped into <fieldset>
+   sections; fields that depend on a toggle/select are wrapped in containers with
+   data-* attributes that static/form.js uses for progressive disclosure. #}
+{% set action = '/bridges' if not bridge else '/bridges/' ~ bridge.id ~ '/edit' %}
+<form method="post" action="{{ action }}" class="card">
+
+    <fieldset>
+        <legend>General</legend>
+        <label>Name <input type="text" name="name" value="{{ bridge.name if bridge else '' }}" required></label>
+        <label>Description <input type="text" name="description" value="{{ bridge.description if bridge else '' }}"></label>
+    </fieldset>
+
+    <fieldset>
+        <legend>FedHub Connection</legend>
+        <label>FedHub Address <input type="text" name="fedhub_address" value="{{ bridge.fedhub_address if bridge else defaults.address }}" required></label>
+        <label>FedHub Port <input type="number" name="fedhub_port" value="{{ bridge.fedhub_port if bridge else defaults.port }}" required></label>
+        <label>JWT Token
+            <textarea name="jwt_token" rows="3" {% if not bridge %}required{% endif %}
+                placeholder="{% if bridge %}Leave blank to keep existing token{% endif %}"></textarea>
+        </label>
+    </fieldset>
+
+    <fieldset>
+        <legend>CoT Input</legend>
+        <label>CoT Input Port (TCP) <input type="number" name="cot_input_port" value="{{ bridge.cot_input_port if bridge else 0 }}" min="0" max="65535"></label>
+        <label>CoT Input Port (UDP) <input type="number" name="cot_input_udp_port" value="{{ bridge.cot_input_udp_port if bridge else 0 }}" min="0" max="65535"></label>
+        <label>CoT Input Port (HTTP POST) <input type="number" name="cot_input_http_port" value="{{ bridge.cot_input_http_port if bridge else 0 }}" min="0" max="65535"></label>
+        <small>Receives CoT XML POSTed by a peer bridge or a CDS/guard. Leave the
+        TLS fields below empty for plain HTTP.</small>
+        <div data-enabled-by-filled="cot_input_http_port">
+            <label>HTTP Server Cert (path) <input type="text" name="http_server_cert" value="{{ bridge.http_server_cert if bridge else '' }}" placeholder="/path/server.pem"></label>
+            <label>HTTP Server Key (path) <input type="text" name="http_server_key" value="{{ bridge.http_server_key if bridge else '' }}" placeholder="/path/server.key"></label>
+            <label>HTTP Server CA (path) <input type="text" name="http_server_ca" value="{{ bridge.http_server_ca if bridge else '' }}" placeholder="/path/ca.pem (set to require client cert / mTLS)"></label>
+            <small>Server cert + key = one-way TLS. Add a CA to require and verify a
+            client certificate (mutual TLS).</small>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>CoT Output</legend>
+        <label>CoT Output Protocol
+            <select name="cot_output_protocol">
+                <option value="tcp" {% if not bridge or (bridge.cot_output_protocol or 'tcp') == 'tcp' %}selected{% endif %}>TCP</option>
+                <option value="udp" {% if bridge and bridge.cot_output_protocol == 'udp' %}selected{% endif %}>UDP</option>
+                <option value="http" {% if bridge and bridge.cot_output_protocol == 'http' %}selected{% endif %}>HTTP POST</option>
+                <option value="https" {% if bridge and bridge.cot_output_protocol == 'https' %}selected{% endif %}>HTTPS POST (mTLS)</option>
+            </select>
+        </label>
+        <div data-show-when="cot_output_protocol=tcp,udp">
+            <label>CoT Output Host <input type="text" name="cot_output_host" value="{{ bridge.cot_output_host if bridge else '' }}"></label>
+            <label>CoT Output Port <input type="number" name="cot_output_port" value="{{ bridge.cot_output_port if bridge else 0 }}" min="0" max="65535"></label>
+        </div>
+        <div data-show-when="cot_output_protocol=http,https">
+            <label>CoT Output URL <input type="text" name="cot_output_http_url" value="{{ bridge.cot_output_http_url if bridge else '' }}" placeholder="https://guard.example:10400/ieg/input/cot"></label>
+            <small>Each outgoing CoT event is POSTed to this URL. For HTTPS, the
+            cert fields below enable mutual TLS.</small>
+            <label>HTTP Client Cert (path) <input type="text" name="http_client_cert" value="{{ bridge.http_client_cert if bridge else '' }}" placeholder="/path/client.pem"></label>
+            <label>HTTP Client Key (path) <input type="text" name="http_client_key" value="{{ bridge.http_client_key if bridge else '' }}" placeholder="/path/client.key"></label>
+            <label>HTTP CA Cert (path) <input type="text" name="http_ca_cert" value="{{ bridge.http_ca_cert if bridge else '' }}" placeholder="/path/ca.pem (verifies the server)"></label>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Group Handling</legend>
+        <label>Group Override <input type="text" name="group_override" value="{{ bridge.group_override if bridge else '' }}" placeholder="e.g. sensors, command (comma-separated FedHub group names)"></label>
+        <label class="checkbox"><input type="checkbox" name="embed_federate_groups" value="true" {% if bridge and bridge.embed_federate_groups %}checked{% endif %}> Embed FedHub federation groups in CoT (non-standard)</label>
+        <small>Carries each event's federation groups through the CoT hop so they
+        survive bridge-to-bridge transit (otherwise lost unless Group Override is
+        set). Adds a non-standard <code>&lt;__fedhubgroups&gt;</code> element to
+        <em>outgoing</em> CoT. Incoming groups are always restored, so enable this on
+        the bridge that emits CoT (the FedHub&nbsp;&rarr;&nbsp;CoT / sending side).
+        Group Override, if set, takes precedence over carried groups.</small>
+        <div data-enabled-by="embed_federate_groups">
+            <label>Group Translation (CoT &harr; FedHub)
+                <textarea name="group_translation" rows="3" placeholder="blue = ALPHA&#10;green = BRAVO">{{ bridge.group_translation if bridge else '' }}</textarea>
+            </label>
+            <small>One mapping per line as <code>cot_name = fedhub_name</code>. Incoming
+            CoT groups are translated to the FedHub name before going to FedHub;
+            outgoing FedHub groups are translated back. Unlisted groups pass through.</small>
+        </div>
+    </fieldset>
+
+    {% set has_out = bridge and (bridge.callsign_rewrite_out or bridge.redact_out or bridge.classify_access_out or bridge.classify_remarks_out) %}
+    <fieldset>
+        <legend>CoT Transformations — Outbound (FedHub &rarr; CoT output)</legend>
+        <label class="checkbox"><input type="checkbox" name="transform_out_enabled" value="true" {% if has_out %}checked{% endif %}> Enable outbound transforms</label>
+        <small>Applied to CoT leaving toward the output (e.g. a CDS): add a callsign
+        marker, redact sensitive elements, stamp a classification.</small>
+        <div data-enabled-by="transform_out_enabled">
+            <label>Callsign Rewrite <input type="text" name="callsign_rewrite_out" value="{{ bridge.callsign_rewrite_out if bridge else '' }}" placeholder="add-suffix:@AREA1"></label>
+            <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
+            <label>Redact <input type="text" name="redact_out" value="{{ bridge.redact_out if bridge else '' }}" placeholder="-takv, -_flow-tags_, zero-point"></label>
+            <small>Comma/newline directives: <code>-tag</code> (remove element), <code>-tag@attr</code> (remove attr), <code>tag@attr=value</code> (set attr), <code>zero-point</code> (set point to 0,0 — strips the real location; the marker still displays, at null island).</small>
+            <label>Classification (access) <input type="text" name="classify_access_out" value="{{ bridge.classify_access_out if bridge else '' }}" placeholder="S3CRET"></label>
+            <small>Stamped on <code>event/@access</code> when it is unset or <code>Undefined</code>.</small>
+            <label>Classification from Remarks <input type="text" name="classify_remarks_out" value="{{ bridge.classify_remarks_out if bridge else '' }}" placeholder="#UNCLASS=UNCLASSIFIED"></label>
+            <small><code>preamble=ACCESS</code> — force <code>access</code> when a <code>&lt;remarks&gt;</code> text starts with the preamble.</small>
+        </div>
+    </fieldset>
+
+    {% set has_in = bridge and (bridge.callsign_rewrite_in or bridge.redact_in or bridge.classify_access_in or bridge.classify_remarks_in) %}
+    <fieldset>
+        <legend>CoT Transformations — Inbound (CoT input &rarr; FedHub)</legend>
+        <label class="checkbox"><input type="checkbox" name="transform_in_enabled" value="true" {% if has_in %}checked{% endif %}> Enable inbound transforms</label>
+        <small>Applied to CoT arriving on the input before it is federated, e.g. strip
+        the callsign marker the far side added.</small>
+        <div data-enabled-by="transform_in_enabled">
+            <label>Callsign Rewrite <input type="text" name="callsign_rewrite_in" value="{{ bridge.callsign_rewrite_in if bridge else '' }}" placeholder="strip-suffix:@AREA1"></label>
+            <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
+            <label>Redact <input type="text" name="redact_in" value="{{ bridge.redact_in if bridge else '' }}" placeholder="-takv, zero-point"></label>
+            <small>Comma/newline directives: <code>-tag</code>, <code>-tag@attr</code>, <code>tag@attr=value</code>, <code>zero-point</code> (sets point to 0,0 — strips the real location; the marker still displays, at null island).</small>
+            <label>Classification (access) <input type="text" name="classify_access_in" value="{{ bridge.classify_access_in if bridge else '' }}" placeholder="S3CRET"></label>
+            <small>Stamped on <code>event/@access</code> when it is unset or <code>Undefined</code>.</small>
+            <label>Classification from Remarks <input type="text" name="classify_remarks_in" value="{{ bridge.classify_remarks_in if bridge else '' }}" placeholder="#UNCLASS=UNCLASSIFIED"></label>
+            <small><code>preamble=ACCESS</code> — force <code>access</code> when a <code>&lt;remarks&gt;</code> text starts with the preamble.</small>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Simulator</legend>
+        <label class="checkbox"><input type="checkbox" name="simulator_enabled" value="true" {% if bridge and bridge.simulator_enabled %}checked{% endif %}> Enable CoT Simulator (generates random test events)</label>
+        <div data-enabled-by="simulator_enabled">
+            <label>Simulator Interval (seconds) <input type="number" name="simulator_interval" value="{{ bridge.simulator_interval if bridge else 5 }}" min="1"></label>
+            <label>Simulator Tracks <input type="number" name="simulator_tracks" value="{{ bridge.simulator_tracks if bridge else 5 }}" min="1" max="50"></label>
+            <label>Simulator Direction
+                <select name="simulator_direction">
+                    <option value="fedhub" {% if not bridge or (bridge.simulator_direction or 'fedhub') == 'fedhub' %}selected{% endif %}>FedHub (to FedHub)</option>
+                    <option value="cot_output" {% if bridge and bridge.simulator_direction == 'cot_output' %}selected{% endif %}>CoT Output (to output host)</option>
+                    <option value="both" {% if bridge and bridge.simulator_direction == 'both' %}selected{% endif %}>Both</option>
+                </select>
+            </label>
+            <small>Where simulated events are sent. <code>CoT Output</code> / <code>Both</code>
+            require a CoT Output to be configured.</small>
+            <label>Simulator Group(s) <input type="text" name="simulator_groups" value="{{ bridge.simulator_groups if bridge else '' }}" placeholder="e.g. blue (comma-separated FedHub federation groups)"></label>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Virtual Chat</legend>
+        <label class="checkbox"><input type="checkbox" name="virtual_chat_enabled" value="true" {% if bridge and bridge.virtual_chat_enabled %}checked{% endif %}> Enable Virtual Chat User</label>
+        <small>Announces a stationary contact (at lat/lon 0,0) into the federation. Any
+        <em>direct</em> chat an ATAK client sends to this contact is re-broadcast as a
+        broadcast GeoChat ("All Chat Rooms") on this bridge's CoT output.</small>
+        <div data-enabled-by="virtual_chat_enabled">
+            <label>Virtual Chat User Callsign <input type="text" name="virtual_chat_callsign" value="{{ bridge.virtual_chat_callsign if bridge else '' }}" placeholder="blank = fedhub-broadcast-chat-&lt;name&gt;"></label>
+        </div>
+    </fieldset>
+
+    {% if bridge %}
+        {% if bridge.enabled %}
+        <p><em>Bridge is currently enabled — saving will restart it with the new configuration (~3-5s downtime on the CoT input/output sockets).</em></p>
+        {% else %}
+        <p><em>Bridge is currently disabled — changes are saved but the bridge will not start until you click Start.</em></p>
+        {% endif %}
+        <button type="submit">Save changes</button>
+        <a href="/bridges/{{ bridge.id }}">Cancel</a>
+    {% else %}
+        <button type="submit">Create Bridge</button>
+    {% endif %}
+</form>
