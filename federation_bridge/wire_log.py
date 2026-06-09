@@ -55,14 +55,25 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
-def log_to_fedhub(bridge_name: str, cot_xml: str, event) -> None:
-    """Log a message flowing local → FedHub. No-op if wire logging is off."""
+def log_to_fedhub(bridge_name: str, cot_xml: str, event,
+                  transformed_cot: Optional[str] = None) -> None:
+    """Log a message flowing local → FedHub. No-op if wire logging is off.
+
+    ``cot_xml`` is the CoT exactly as received (before any ingress transform),
+    so the log reflects what actually arrived. When an ingress transform changed
+    it, pass the result as ``transformed_cot`` and it is shown as a separate
+    block so the redaction/rewrite is auditable.
+    """
     if _to_logger is None:
         return
     uid = event.event.uid if event.HasField("event") else ""
+    extra = ""
+    if transformed_cot is not None and transformed_cot != cot_xml:
+        extra = f"--- CoT XML in (after transform) ---\n{transformed_cot}\n"
     _to_logger.info(
         f"=== {_now()} bridge={bridge_name} uid={uid} ===\n"
         f"--- CoT XML in ---\n{cot_xml}\n"
+        f"{extra}"
         f"--- FederatedEvent proto out ---\n{event}"
     )
 

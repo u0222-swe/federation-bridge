@@ -394,6 +394,9 @@ class Bridge:
         while True:
             try:
                 cot_xml = await self._cot_inbound.get()
+                # Keep the message exactly as received for the wire log; the
+                # ingress transform mutates cot_xml below.
+                received_cot = cot_xml
 
                 # Apply ingress transforms before parsing so rewritten callsigns
                 # reach screenName/contact-announce and a stamped access reaches
@@ -430,7 +433,7 @@ class Bridge:
                     event.federateGroups[:] = groups
                 # Add federateProvenance so FedHub doesn't loop-drop the event
                 event.federateProvenance.append(provenance)
-                log_to_fedhub(self.name, cot_xml, event)
+                log_to_fedhub(self.name, received_cot, event, transformed_cot=cot_xml)
                 await self._grpc_outbound.put(event)
                 converted += 1
                 if converted <= 3 or converted % 20 == 0:

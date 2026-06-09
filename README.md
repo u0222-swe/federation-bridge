@@ -797,8 +797,12 @@ This writes every message in both directions:
 
 Each block starts with a header `=== <iso-timestamp> bridge=<name> uid=<uid> ===`
 followed by the inbound and converted outbound payloads in plain text — easy to
-`grep` and diff. Files rotate at 50 MB and keep 3 backups. Direction names use
-FedHub as the fixed reference point. Disable by unsetting `FEDBRIDGE_WIRE_LOG`.
+`grep` and diff. The `CoT XML in` payload is the message exactly as received
+(before any ingress transform); when a [CoT transform](#cot-transformations)
+changes it, the result is shown in an extra `CoT XML in (after transform)` block
+so redaction/rewrite stays auditable. Files rotate at 50 MB and keep 3 backups.
+Direction names use FedHub as the fixed reference point. Disable by unsetting
+`FEDBRIDGE_WIRE_LOG`.
 
 > Wire logs contain full message payloads. Treat them as sensitive and clean
 > them up after debugging.
