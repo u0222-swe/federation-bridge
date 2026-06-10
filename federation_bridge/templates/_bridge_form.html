@@ -89,7 +89,11 @@
         marker, redact sensitive elements, stamp a classification.</small>
         <div data-enabled-by="transform_out_enabled">
             <label>Callsign Rewrite <input type="text" name="callsign_rewrite_out" value="{{ bridge.callsign_rewrite_out if bridge else '' }}" placeholder="add-suffix:@AREA1"></label>
-            <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
+            <small><code>op:value</code>. Suffix = marker <em>after</em> the callsign, prefix = <em>before</em> it:
+            <code>add-suffix:@AREA1</code> &rarr; <code>NISSE@AREA1</code>,
+            <code>add-prefix:@AREA1</code> &rarr; <code>@AREA1NISSE</code>;
+            <code>strip-suffix</code>/<code>strip-prefix</code> remove the marker from that end.
+            All four ops are available in both directions.</small>
             <label>Redact <input type="text" name="redact_out" value="{{ bridge.redact_out if bridge else '' }}" placeholder="-takv, -_flow-tags_, zero-point"></label>
             <small>Comma/newline directives: <code>-tag</code> (remove element), <code>-tag@attr</code> (remove attr), <code>tag@attr=value</code> (set attr), <code>zero-point</code> (set point to 0,0 — strips the real location; the marker still displays, at null island).</small>
             <label>Classification (access) <input type="text" name="classify_access_out" value="{{ bridge.classify_access_out if bridge else '' }}" placeholder="S3CRET"></label>
@@ -107,7 +111,11 @@
         the callsign marker the far side added.</small>
         <div data-enabled-by="transform_in_enabled">
             <label>Callsign Rewrite <input type="text" name="callsign_rewrite_in" value="{{ bridge.callsign_rewrite_in if bridge else '' }}" placeholder="strip-suffix:@AREA1"></label>
-            <small><code>op:value</code> — op is <code>add-suffix</code>, <code>add-prefix</code>, <code>strip-suffix</code> or <code>strip-prefix</code>.</small>
+            <small><code>op:value</code>. Suffix = marker <em>after</em> the callsign, prefix = <em>before</em> it:
+            <code>add-suffix:@AREA1</code> &rarr; <code>NISSE@AREA1</code>,
+            <code>add-prefix:@AREA1</code> &rarr; <code>@AREA1NISSE</code>;
+            <code>strip-suffix</code>/<code>strip-prefix</code> remove the marker from that end.
+            All four ops are available in both directions.</small>
             <label>Redact <input type="text" name="redact_in" value="{{ bridge.redact_in if bridge else '' }}" placeholder="-takv, zero-point"></label>
             <small>Comma/newline directives: <code>-tag</code>, <code>-tag@attr</code>, <code>tag@attr=value</code>, <code>zero-point</code> (sets point to 0,0 — strips the real location; the marker still displays, at null island).</small>
             <label>Classification (access) <input type="text" name="classify_access_in" value="{{ bridge.classify_access_in if bridge else '' }}" placeholder="S3CRET"></label>
