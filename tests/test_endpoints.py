@@ -67,6 +67,14 @@ def test_index_empty(client):
     assert "No bridges configured" in r.text
 
 
+def test_version_in_health_and_footer(client):
+    from federation_bridge.version import get_version, __version__
+    assert get_version().startswith(__version__)
+    r = client.get("/health")
+    assert r.json()["version"] == get_version()
+    assert f"Federation Bridge Manager {get_version()}" in client.get("/").text
+
+
 def test_create_persists_and_starts(client):
     cfg = _create(client, name="partners", cot_input_udp_port="10001")
     assert cfg.name == "partners" and cfg.cot_input_udp_port == 10001
