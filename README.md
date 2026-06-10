@@ -602,17 +602,21 @@ transforms** and fill in any of the fields below (empty = that transform is off)
 
 Add or strip a marker on callsigns (`<contact callsign>`, `<marti><dest
 callsign>`, `<__chat senderCallsign>`) so operators can see where a track
-originates. Format `op:value`:
+originates. Format `op:value`. **Suffix** places the marker *after* the
+callsign, **prefix** places it *before*:
 
-| op | Effect |
-|----|--------|
-| `add-suffix` | `ALPHA` → `ALPHA@AREA1` |
-| `add-prefix` | `ALPHA` → `@AREA1_ALPHA` (with value `@AREA1_`) |
-| `strip-suffix` | `ALPHA@AREA1` → `ALPHA` |
-| `strip-prefix` | `@AREA1_ALPHA` → `ALPHA` |
+| op | Placement | Example (value `@AREA1`) |
+|----|-----------|--------------------------|
+| `add-suffix` | marker **after** the callsign | `NISSE` → `NISSE@AREA1` |
+| `add-prefix` | marker **before** the callsign | `NISSE` → `@AREA1NISSE` |
+| `strip-suffix` | removes the marker from the **end** | `NISSE@AREA1` → `NISSE` |
+| `strip-prefix` | removes the marker from the **start** | `@AREA1NISSE` → `NISSE` |
 
-Typical pairing: `add-suffix:@AREA1` outbound on the sending bridge, and
-`strip-suffix:@AREA1` inbound on the receiving bridge. Adds are idempotent (a
+All four ops are available in **both** directions (outbound and inbound) — pick
+the combination that fits your topology. The typical pairing is
+`add-suffix:@AREA1` outbound on the sending bridge and `strip-suffix:@AREA1`
+inbound on the receiving bridge, but tagging *arriving* tracks instead (e.g.
+`add-suffix:@AREA1` inbound) works just as well. Adds are idempotent (a
 callsign that already carries the marker is left unchanged).
 
 ### Redact
