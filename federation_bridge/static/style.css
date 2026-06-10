@@ -164,5 +164,12 @@ button.danger:hover { filter: brightness(0.92); }
 .status-starting { color: #f57c00; }
 
 .actions { margin: 1rem 0; }
+
+footer {
+    margin-top: 2.5rem;
+    color: var(--muted);
+    font-size: 0.8rem;
+    text-align: center;
+}
 </content>
 </invoke>

@@ -14,6 +14,7 @@ from .models import BridgeConfig
 from .store import BridgeStore
 from .bridge import BridgeStatus
 from .bridge_manager import BridgeManager
+from .version import get_version
 
 logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(name)s %(levelname)s: %(message)s")
 logger = logging.getLogger("federation-bridge")
@@ -32,7 +33,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 async def lifespan(app: FastAPI):
     store.load()
     await manager.load_and_start_saved(store)
-    logger.info("Federation Bridge Manager started")
+    logger.info(f"Federation Bridge Manager {get_version()} started")
     yield
     await manager.shutdown_all()
     logger.info("Federation Bridge Manager stopped")
@@ -41,11 +42,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Federation Bridge Manager", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
+# Shown in the base template's footer on every page.
+templates.env.globals["app_version"] = get_version()
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": get_version()}
 
 
 @app.get("/", response_class=HTMLResponse)

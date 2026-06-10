@@ -922,7 +922,7 @@ message FederatedEvent {
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/health` | Health check |
+| `GET` | `/health` | Health check (includes the app version) |
 | `GET` | `/` | Bridge list (HTML) |
 | `POST` | `/bridges` | Create bridge |
 | `GET` | `/bridges/{id}` | Bridge detail (HTML) |
